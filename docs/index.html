@@ -1,0 +1,38 @@
+
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Now Page</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 600px; margin: 40px auto; padding: 20px; background: #fafafa; color: #333; }
+    h1 { text-align: center; margin-bottom: 40px; }
+    .timeline { border-left: 3px solid #ddd; margin-left: 20px; padding-left: 30px; }
+    .node { margin-bottom: 40px; position: relative; }
+    /* 畫時間軸的圈圈 */
+    .node::before { content: ''; width: 14px; height: 14px; background: #ddd; border-radius: 50%; position: absolute; left: -39px; top: 6px; }
+    /* 現在狀態 (current) 會發亮！ */
+    .node.current::before { background: #ff6b6b; box-shadow: 0 0 12px #ff6b6b; }
+    .date { font-size: 0.9em; color: #888; letter-spacing: 1px; }
+    .content h2 { margin: 5px 0 10px 0; font-size: 1.4em; }
+    .content p { line-height: 1.6; color: #555; }
+  </style>
+</head>
+<body>
+  <h1>✧ ₍ᐢ.ˬ.⑅ᐢ₎ʚଓ<br>Now Page</h1>
+  <div class="timeline">
+    
+    <div class="node archive">
+      <div class="date">2026-03-31</div>
+      <div class="content">
+        <h2>尼豪！三月！再別悠閒空虛ㄉ自己！</h2>
+        <p># 尼豪！三月！再別悠閒空虛ㄉ自己！</p><p>盤點億下下這個月的回顧ㄅ ꉂ ˋ ˇˊ 𐤔！
+今年開始會有ㄌ寫日記的習慣（不過三月的時候只留下了一篇記錄，真的是太忙了 ><......）
+所以部分ㄉ記錄我是從我 N 個 SNS 中爬下來的！請安心食用ㄅ ✧ ₍ᐢ.ˬ.⑅ᐢ₎ʚଓ</p>
+      </div>
+    </div>
+  
+  </div>
+</body>
+</html>

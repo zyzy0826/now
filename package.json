@@ -1,0 +1,9 @@
+{
+  "name": "now-zyzy",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "new:node": "node scripts/create-node.js",
+    "build": "node scripts/build.js"
+  }
+}
