@@ -1,29 +1,33 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-// 🌟 設定輸出的根目錄為 docs/now
 const contentDir = path.join(process.cwd(), 'content', 'nodes');
 const outputBaseDir = path.join(process.cwd(), 'docs');
 const nowDir = path.join(outputBaseDir, 'now');
 
-// 確保目錄存在
 [outputBaseDir, nowDir].forEach(dir => {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 });
 
-// 微型 Markdown 解析器 (維持上一版的高級解析邏輯)
 function renderMarkdown(md) {
-  let html = md.replace(/\r\n/g, '\n');
+  // 🛡️ 終極防禦魔法：在解析前，先把所有的 < 和 > 轉碼！
+  // 這樣你的 <3 跟 >< 就絕對不會再被瀏覽器吃掉惹！
+  let html = md.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  
+  html = html.replace(/\r\n/g, '\n');
   html = html.replace(/^(#+ .*$)/gim, '\n\n$1\n\n');
   html = html.replace(/^### (.*$)/gim, '<h3>$1</h3>');
   html = html.replace(/^## (.*$)/gim, '<h2>$1</h2>');
   html = html.replace(/^# (.*$)/gim, '<h1>$1</h1>');
+  
+  // 因為上面轉碼了，所以這裡解析標籤要注意不要動到 < 和 >
   html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
   html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
   html = html.replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank">$1</a>');
   html = html.replace(/^- (.*$)/gim, '<li>$1</li>');
   html = html.replace(/(<li>.*<\/li>\n*)+/g, match => `\n\n<ul class="md-list">\n${match.trim()}\n</ul>\n\n`);
   html = html.replace(/\n{3,}/g, '\n\n');
+  
   const blocks = html.split('\n\n');
   return blocks.map(block => {
     const trimmed = block.trim();
@@ -47,18 +51,12 @@ files.forEach(file => {
   const date = frontmatter.match(/date:\s*"(.*?)"/)?.[1] || '';
   const status = frontmatter.match(/status:\s*"(.*?)"/)?.[1] || 'archive';
   
-  // 🌟 產生 slug (去掉日期與副檔名，作為資料夾名稱)
-  // 例如：2026-03-01-march-life.md -> march-life
   const slug = file.replace(/^\d{4}-\d{2}-\d{2}-/, '').replace('.md', '');
-
   nodesData.push({ title, date, status, htmlContent: renderMarkdown(markdownBody), slug });
 });
 
 nodesData.sort((a, b) => new Date(b.date) - new Date(a.date));
 
-// ==========================================
-// 1. 產生每個節點的獨立資料夾與 index.html (實現 zuiyu.me/now/slug)
-// ==========================================
 nodesData.forEach(node => {
   const postDir = path.join(nowDir, node.slug);
   if (!fs.existsSync(postDir)) fs.mkdirSync(postDir, { recursive: true });
@@ -89,13 +87,9 @@ nodesData.forEach(node => {
   fs.writeFileSync(path.join(postDir, 'index.html'), postHtml, 'utf8');
 });
 
-// ==========================================
-// 2. 產生 Now 主頁 (位於 docs/now/index.html)
-// ==========================================
 let timelineHtml = '';
 nodesData.forEach((node, index) => {
   const positionClass = index % 2 === 0 ? 'up' : 'down';
-  // 🌟 連結直接指向資料夾名稱
   timelineHtml += `
     <a href="${node.slug}/" class="node-card ${positionClass} ${node.status}">
       <div class="node-date">${node.date}</div>
@@ -145,4 +139,4 @@ const indexTemplate = `
 `;
 
 fs.writeFileSync(path.join(nowDir, 'index.html'), indexTemplate, 'utf8');
-console.log('✅ 打包完成！結構已優化為：docs/now/slug/index.html');
+console.log('✅ 終極防禦打包完成！請去 docs/now/ 資料夾找你的新網頁！');
