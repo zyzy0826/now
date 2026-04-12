@@ -1,89 +1,148 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-// 設定資料夾路徑
+// 🌟 設定輸出的根目錄為 docs/now
 const contentDir = path.join(process.cwd(), 'content', 'nodes');
-const outputDir = path.join(process.cwd(), 'docs'); // GitHub Pages 最愛讀這個資料夾
+const outputBaseDir = path.join(process.cwd(), 'docs');
+const nowDir = path.join(outputBaseDir, 'now');
 
-// 如果沒有 docs 資料夾，就建一個
-if (!fs.existsSync(outputDir)) {
-  fs.mkdirSync(outputDir, { recursive: true });
+// 確保目錄存在
+[outputBaseDir, nowDir].forEach(dir => {
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+});
+
+// 微型 Markdown 解析器 (維持上一版的高級解析邏輯)
+function renderMarkdown(md) {
+  let html = md.replace(/\r\n/g, '\n');
+  html = html.replace(/^(#+ .*$)/gim, '\n\n$1\n\n');
+  html = html.replace(/^### (.*$)/gim, '<h3>$1</h3>');
+  html = html.replace(/^## (.*$)/gim, '<h2>$1</h2>');
+  html = html.replace(/^# (.*$)/gim, '<h1>$1</h1>');
+  html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+  html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
+  html = html.replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank">$1</a>');
+  html = html.replace(/^- (.*$)/gim, '<li>$1</li>');
+  html = html.replace(/(<li>.*<\/li>\n*)+/g, match => `\n\n<ul class="md-list">\n${match.trim()}\n</ul>\n\n`);
+  html = html.replace(/\n{3,}/g, '\n\n');
+  const blocks = html.split('\n\n');
+  return blocks.map(block => {
+    const trimmed = block.trim();
+    if (!trimmed) return '';
+    if (trimmed.startsWith('<h') || trimmed.startsWith('<ul')) return trimmed;
+    return `<p>${trimmed.replace(/\n/g, '<br>')}</p>`;
+  }).join('\n');
 }
 
-// 讀取所有 markdown 檔案
 const files = fs.readdirSync(contentDir).filter(f => f.endsWith('.md'));
 let nodesData = [];
 
-// 解析每一個檔案
 files.forEach(file => {
   const content = fs.readFileSync(path.join(contentDir, file), 'utf-8');
-  
-  // 手刻超簡易正則表達式，把標頭(Frontmatter)跟內文分開
   const match = content.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
   if (!match) return;
 
   const frontmatter = match[1];
   const markdownBody = match[2].trim();
-
-  // 抓取屬性
   const title = frontmatter.match(/title:\s*"(.*?)"/)?.[1] || 'Untitled';
   const date = frontmatter.match(/date:\s*"(.*?)"/)?.[1] || '';
   const status = frontmatter.match(/status:\s*"(.*?)"/)?.[1] || 'archive';
+  
+  // 🌟 產生 slug (去掉日期與副檔名，作為資料夾名稱)
+  // 例如：2026-03-01-march-life.md -> march-life
+  const slug = file.replace(/^\d{4}-\d{2}-\d{2}-/, '').replace('.md', '');
 
-  // 超簡易 Markdown 轉 HTML (只處理換行變成段落)
-  const htmlContent = markdownBody.split('\n\n').map(p => `<p>${p}</p>`).join('');
-
-  nodesData.push({ title, date, status, htmlContent });
+  nodesData.push({ title, date, status, htmlContent: renderMarkdown(markdownBody), slug });
 });
 
-// 按照日期排序（最新的在最上面）
 nodesData.sort((a, b) => new Date(b.date) - new Date(a.date));
 
-// 把資料組裝成 HTML 節點
-let nodesHtml = '';
+// ==========================================
+// 1. 產生每個節點的獨立資料夾與 index.html (實現 zuiyu.me/now/slug)
+// ==========================================
 nodesData.forEach(node => {
-  nodesHtml += `
-    <div class="node ${node.status}">
-      <div class="date">${node.date}</div>
-      <div class="content">
-        <h2>${node.title}</h2>
-        ${node.htmlContent}
-      </div>
-    </div>
+  const postDir = path.join(nowDir, node.slug);
+  if (!fs.existsSync(postDir)) fs.mkdirSync(postDir, { recursive: true });
+
+  const postHtml = `
+  <!DOCTYPE html>
+  <html lang="zh-TW">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${node.title} - Now Page</title>
+    <style>
+      body { font-family: system-ui, sans-serif; max-width: 650px; margin: 40px auto; padding: 20px; background: #fafafa; color: #333; line-height: 1.8; }
+      .back-btn { display: inline-block; margin-bottom: 30px; text-decoration: none; color: #888; border: 1px solid #ddd; padding: 6px 16px; border-radius: 20px; font-size: 0.9em; transition: 0.2s; }
+      .back-btn:hover { background: #eee; color: #333; }
+      .date { color: #ff6b6b; font-size: 0.95em; font-weight: bold; letter-spacing: 1px; }
+      .content h1 { font-size: 2em; margin-bottom: 20px; border-bottom: 2px solid #eee; padding-bottom: 10px; }
+      .content .md-list { background: #fff; padding: 20px 20px 20px 40px; border-radius: 8px; border: 1px solid #eee; margin-bottom: 20px; }
+    </style>
+  </head>
+  <body>
+    <a href="../" class="back-btn">← 回到 Now 主頁</a>
+    <div class="date">${node.date}</div>
+    <div class="content">${node.htmlContent}</div>
+  </body>
+  </html>
+  `;
+  fs.writeFileSync(path.join(postDir, 'index.html'), postHtml, 'utf8');
+});
+
+// ==========================================
+// 2. 產生 Now 主頁 (位於 docs/now/index.html)
+// ==========================================
+let timelineHtml = '';
+nodesData.forEach((node, index) => {
+  const positionClass = index % 2 === 0 ? 'up' : 'down';
+  // 🌟 連結直接指向資料夾名稱
+  timelineHtml += `
+    <a href="${node.slug}/" class="node-card ${positionClass} ${node.status}">
+      <div class="node-date">${node.date}</div>
+      <div class="node-title">${node.title}</div>
+    </a>
   `;
 });
 
-// 這是你的網站 HTML 骨架與基礎 CSS Vibe
-const htmlTemplate = `
+const indexTemplate = `
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>My Now Page</title>
+  <title>Now Page - zuiyu.me</title>
   <style>
-    body { font-family: system-ui, sans-serif; max-width: 600px; margin: 40px auto; padding: 20px; background: #fafafa; color: #333; }
-    h1 { text-align: center; margin-bottom: 40px; }
-    .timeline { border-left: 3px solid #ddd; margin-left: 20px; padding-left: 30px; }
-    .node { margin-bottom: 40px; position: relative; }
-    /* 畫時間軸的圈圈 */
-    .node::before { content: ''; width: 14px; height: 14px; background: #ddd; border-radius: 50%; position: absolute; left: -39px; top: 6px; }
-    /* 現在狀態 (current) 會發亮！ */
-    .node.current::before { background: #ff6b6b; box-shadow: 0 0 12px #ff6b6b; }
-    .date { font-size: 0.9em; color: #888; letter-spacing: 1px; }
-    .content h2 { margin: 5px 0 10px 0; font-size: 1.4em; }
-    .content p { line-height: 1.6; color: #555; }
+    body { font-family: system-ui, sans-serif; background: #fafafa; color: #333; margin: 0; padding: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; overflow: hidden; }
+    .timeline-container { position: relative; width: 90vw; max-width: 1000px; display: flex; align-items: center; }
+    .timeline-track { position: absolute; top: 50%; left: 0; right: 0; border-top: 2px dashed #bbb; z-index: 1; }
+    .nodes-wrapper { display: flex; gap: 60px; padding: 120px 40px; overflow-x: auto; scroll-behavior: smooth; z-index: 2; width: 100%; scrollbar-width: none; }
+    .nodes-wrapper::-webkit-scrollbar { display: none; }
+    .node-card { position: relative; background: white; padding: 15px 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); text-decoration: none; color: inherit; min-width: 140px; text-align: center; transition: transform 0.2s; flex-shrink: 0; border: 1px solid #eee; }
+    .node-card:hover { transform: scale(1.05); }
+    .node-card.up { transform: translateY(-70px); }
+    .node-card.up::after { content: ''; position: absolute; left: 50%; bottom: -52px; height: 50px; border-left: 2px dashed #bbb; transform: translateX(-50%); }
+    .node-card.down { transform: translateY(70px); }
+    .node-card.down::after { content: ''; position: absolute; left: 50%; top: -52px; height: 50px; border-left: 2px dashed #bbb; transform: translateX(-50%); }
+    .nav-btn { background: white; border: 1px solid #ddd; border-radius: 50%; width: 45px; height: 45px; cursor: pointer; position: absolute; top: 50%; transform: translateY(-50%); z-index: 10; display: flex; align-items: center; justify-content: center; }
+    .nav-left { left: -20px; } .nav-right { right: -20px; }
   </style>
 </head>
 <body>
-  <h1>✧ ₍ᐢ.ˬ.⑅ᐢ₎ʚଓ<br>Now Page</h1>
-  <div class="timeline">
-    ${nodesHtml}
+  <h1>✧ ₍ᐢ.ˬ.⑅ᐢ₎ʚଓ<br>Zuiyu's Now Page</h1>
+  <div class="timeline-container">
+    <button class="nav-btn nav-left" id="scroll-left">←</button>
+    <div class="timeline-track"></div>
+    <div class="nodes-wrapper" id="scroll-wrapper">${timelineHtml}</div>
+    <button class="nav-btn nav-right" id="scroll-right">→</button>
   </div>
+  <script>
+    const wrapper = document.getElementById('scroll-wrapper');
+    document.getElementById('scroll-left').addEventListener('click', () => { wrapper.scrollBy({ left: -300, behavior: 'smooth' }); });
+    document.getElementById('scroll-right').addEventListener('click', () => { wrapper.scrollBy({ left: 300, behavior: 'smooth' }); });
+  </script>
 </body>
 </html>
 `;
 
-// 寫出最終的 HTML 檔案
-fs.writeFileSync(path.join(outputDir, 'index.html'), htmlTemplate, 'utf8');
-console.log('✅ Vibe 打包完成！請去 docs/index.html 查看你的網站！');
+fs.writeFileSync(path.join(nowDir, 'index.html'), indexTemplate, 'utf8');
+console.log('✅ 打包完成！結構已優化為：docs/now/slug/index.html');

@@ -27,7 +27,12 @@ rl.question('✏️  這個節點的標題是？ (可輸入中文，例如：202
     rl.question('📌 這是目前的狀態 (current) 還是歷史回顧 (archive)？ [預設: current / 輸入 a 切換 archive]： ', (statusInput) => {
       
       const status = statusInput.toLowerCase() === 'a' ? 'archive' : 'current';
-      const date = new Date().toISOString().split('T')[0]; 
+      // 取得本地時間，並格式化為 YYYY-MM-DD
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, '0'); // 月份從 0 開始，所以要 +1
+      const day = String(now.getDate()).padStart(2, '0');
+      const date = `${year}-${month}-${day}`;
       
       // 使用你輸入的英文 slug 來當作檔名，並過濾掉不小心打進去的空格
       const cleanSlug = slug.trim().replace(/\s+/g, '-').toLowerCase() || 'untitled-node';
