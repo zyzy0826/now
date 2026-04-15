@@ -1,26 +1,21 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
+// 🌟 改變在這裡：直接把輸出目錄鎖定在 docs 就好，把 nowDir 拔掉！
 const contentDir = path.join(process.cwd(), 'content', 'nodes');
-const outputBaseDir = path.join(process.cwd(), 'docs');
-const nowDir = path.join(outputBaseDir, 'now');
+const outputDir = path.join(process.cwd(), 'docs');
 
-[outputBaseDir, nowDir].forEach(dir => {
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-});
+if (!fs.existsSync(outputDir)) {
+  fs.mkdirSync(outputDir, { recursive: true });
+}
 
 function renderMarkdown(md) {
-  // 🛡️ 終極防禦魔法：在解析前，先把所有的 < 和 > 轉碼！
-  // 這樣你的 <3 跟 >< 就絕對不會再被瀏覽器吃掉惹！
   let html = md.replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  
   html = html.replace(/\r\n/g, '\n');
   html = html.replace(/^(#+ .*$)/gim, '\n\n$1\n\n');
   html = html.replace(/^### (.*$)/gim, '<h3>$1</h3>');
   html = html.replace(/^## (.*$)/gim, '<h2>$1</h2>');
   html = html.replace(/^# (.*$)/gim, '<h1>$1</h1>');
-  
-  // 因為上面轉碼了，所以這裡解析標籤要注意不要動到 < 和 >
   html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
   html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
   html = html.replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank">$1</a>');
@@ -57,8 +52,11 @@ files.forEach(file => {
 
 nodesData.sort((a, b) => new Date(b.date) - new Date(a.date));
 
+// ==========================================
+// 1. 產生獨立資料夾 (現在直接生在 docs/slug/ 下面)
+// ==========================================
 nodesData.forEach(node => {
-  const postDir = path.join(nowDir, node.slug);
+  const postDir = path.join(outputDir, node.slug);
   if (!fs.existsSync(postDir)) fs.mkdirSync(postDir, { recursive: true });
 
   const postHtml = `
@@ -84,9 +82,13 @@ nodesData.forEach(node => {
   </body>
   </html>
   `;
+  // 寫入 docs/slug/index.html
   fs.writeFileSync(path.join(postDir, 'index.html'), postHtml, 'utf8');
 });
 
+// ==========================================
+// 2. 產生主頁 (現在直接生在 docs/index.html)
+// ==========================================
 let timelineHtml = '';
 nodesData.forEach((node, index) => {
   const positionClass = index % 2 === 0 ? 'up' : 'down';
@@ -138,5 +140,5 @@ const indexTemplate = `
 </html>
 `;
 
-fs.writeFileSync(path.join(nowDir, 'index.html'), indexTemplate, 'utf8');
-console.log('✅ 終極防禦打包完成！請去 docs/now/ 資料夾找你的新網頁！');
+fs.writeFileSync(path.join(outputDir, 'index.html'), indexTemplate, 'utf8');
+console.log('✅ 打包完成！結構已直接輸出至 docs/ 根目錄！');
